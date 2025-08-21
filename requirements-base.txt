@@ -1,0 +1,36 @@
+# Base requirements - Core platform without SAP RFC
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0
+pydantic-settings>=2.0
+
+# Data processing
+polars>=0.20.0
+numpy>=1.24.0
+
+# ERP Connectors (excluding PyRFC) - Made optional to avoid version conflicts
+# python-oracledb>=1.4.0  # Use older version for Python 3.8-3.10 compatibility
+# pyodbc>=4.0.39  # Use compatible version
+
+# Task queue
+celery>=5.3
+redis>=5.0
+
+# HTTP and networking
+httpx>=0.25.0
+aiofiles>=23.2.1
+pyzmq>=25.1.0
+msgpack>=1.0.5
+
+# Monitoring and logging
+prometheus-client>=0.19.0
+# OpenTelemetry packages - use compatible versions for Python 3.8
+opentelemetry-api>=1.20.0,<1.21.0
+opentelemetry-sdk>=1.20.0,<1.21.0
+# opentelemetry-exporter-prometheus>=0.41b0,<0.42b0  # Commented out to avoid conflicts
+structlog>=23.2.0
+
+# Utilities
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+psutil>=5.9.0

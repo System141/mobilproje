@@ -1,0 +1,110 @@
+# Docker Compose Override Examples
+# Copy this file to docker-compose.override.yml and uncomment the variant you want to use
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Base Configuration (Default)
+  # =============================================================================
+  # Default configuration is already in docker-compose.yml
+
+  # =============================================================================
+  # SAP REST Configuration
+  # =============================================================================
+  # Uncomment to use SAP REST connectivity (no PyRFC required)
+  
+  # app:
+  #   build:
+  #     target: sap-rest
+  #     args:
+  #       BUILD_VARIANT: sap-rest
+  #       INCLUDE_SAP_RFC: false
+  #       INCLUDE_SAP_REST: true
+  #   environment:
+  #     - ERP_PLATFORM_BUILD_VARIANT=sap-rest
+  #     - SAP_CONNECTION_MODE=rest
+  #     # Add your SAP system connection details
+  #     - SAP_HOST=your-sap-host.com
+  #     - SAP_PORT=8000
+  #     - SAP_USERNAME=your-username
+  #     - SAP_PASSWORD=your-password
+
+  # =============================================================================
+  # SAP RFC Configuration (Advanced)
+  # =============================================================================
+  # Uncomment to use SAP RFC connectivity (requires SAP NetWeaver RFC SDK)
+  
+  # app:
+  #   build:
+  #     target: sap-rfc
+  #     args:
+  #       BUILD_VARIANT: sap-rfc
+  #       INCLUDE_SAP_RFC: true
+  #       INCLUDE_SAP_REST: true
+  #   environment:
+  #     - ERP_PLATFORM_BUILD_VARIANT=sap-rfc
+  #     - ERP_PLATFORM_SAP_RFC_ENABLED=true
+  #     - SAP_CONNECTION_MODE=rfc
+  #     - SAPNWRFC_HOME=/opt/nwrfcsdk
+  #     - LD_LIBRARY_PATH=/opt/nwrfcsdk/lib:$LD_LIBRARY_PATH
+  #     # Add your SAP system connection details
+  #     - SAP_HOST=your-sap-host.com
+  #     - SAP_SYSNR=00
+  #     - SAP_CLIENT=100
+  #     - SAP_USERNAME=your-username
+  #     - SAP_PASSWORD=your-password
+  #     - SAP_LANG=EN
+  #   volumes:
+  #     # IMPORTANT: Mount the SAP NetWeaver RFC SDK directory
+  #     # Download the SDK from SAP Support Portal and extract it
+  #     - /path/to/your/nwrfcsdk:/opt/nwrfcsdk:ro
+
+  # =============================================================================
+  # Development Configuration
+  # =============================================================================
+  # Uncomment for development with hot reloading
+  
+  # app:
+  #   command: uvicorn erp_platform.main:app --host 0.0.0.0 --port 8000 --reload
+  #   environment:
+  #     - DEBUG=true
+  #     - ENVIRONMENT=development
+  #     - LOG_LEVEL=debug
+  #   volumes:
+  #     - ./src:/app/src  # This is already mapped for hot reloading
+
+  # =============================================================================
+  # Production Configuration
+  # =============================================================================
+  # Uncomment for production deployment
+  
+  # app:
+  #   environment:
+  #     - DEBUG=false
+  #     - ENVIRONMENT=production
+  #     - LOG_LEVEL=info
+  #     - WORKERS=4  # Adjust based on CPU cores
+  #   command: gunicorn erp_platform.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+  #   restart: always
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 1G
+  #         cpus: '0.5'
+
+  # =============================================================================
+  # Additional Services for SAP RFC
+  # =============================================================================
+  # Uncomment if using SAP RFC mode and need additional services
+  
+  # sap-gateway:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "8080:80"
+  #   volumes:
+  #     - ./docker/nginx-sap-gateway.conf:/etc/nginx/conf.d/default.conf:ro
+  #   depends_on:
+  #     - app
+  #   networks:
+  #     - erp-network
