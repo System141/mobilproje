@@ -16,7 +16,7 @@ import structlog
 from src.config import settings
 from src.database import engine, setup_row_level_security, DatabaseManager
 from src.core.tenant import TenantMiddleware
-from src.api.v1 import auth, tenants, integrations, webhooks
+from src.api.v1 import auth, tenants, integrations, webhooks, health
 from src.utils.monitoring import setup_monitoring, MetricsMiddleware
 from src.utils.turkish import setup_turkish_localization
 
@@ -183,54 +183,6 @@ async def internal_error_handler(request: Request, exc):
         }
     )
 
-# Health check endpoints
-@app.get("/health", tags=["System"])
-async def health_check():
-    """Basic health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "Turkish Business Integration Platform",
-        "version": "1.0.0",
-        "environment": settings.environment
-    }
-
-@app.get("/health/detailed", tags=["System"])
-async def detailed_health_check():
-    """Detailed health check with system information"""
-    database_info = await DatabaseManager.get_database_info()
-    database_healthy = await DatabaseManager.health_check()
-    
-    return {
-        "status": "healthy" if database_healthy else "unhealthy",
-        "service": "Turkish Business Integration Platform",
-        "version": "1.0.0",
-        "environment": settings.environment,
-        "database": {
-            "healthy": database_healthy,
-            "info": database_info
-        },
-        "features": {
-            "kvkk_compliance": settings.kvkk_enabled,
-            "turkish_integrations": True,
-            "multi_tenant": True
-        }
-    }
-
-@app.get("/ready", tags=["System"])
-async def readiness_check():
-    """Kubernetes readiness probe endpoint"""
-    database_healthy = await DatabaseManager.health_check()
-    
-    if not database_healthy:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "not_ready",
-                "message": "Database not available"
-            }
-        )
-    
-    return {"status": "ready"}
 
 # Include API routers
 app.include_router(
@@ -257,6 +209,12 @@ app.include_router(
     tags=["Webhooks"]
 )
 
+app.include_router(
+    health.router,
+    prefix="/health",
+    tags=["Health & Monitoring"]
+)
+
 # Mount Prometheus metrics endpoint
 if settings.prometheus_enabled:
     metrics_app = make_asgi_app()
@@ -270,24 +228,103 @@ async def root():
         "service": "Turkish Business Integration Platform",
         "version": "1.0.0",
         "description": "FastAPI Multi-Tenant SaaS for Turkish Business Systems",
+        "message": "Türk iş sistemleri için çok kiracılı SaaS platformu",
         "features": [
             "Multi-tenant architecture",
             "KVKK compliance",
             "Turkish business system integrations",
             "Event-driven workflows",
-            "Real-time monitoring"
+            "Real-time monitoring",
+            "JWT Authentication",
+            "Webhook management",
+            "Usage quota tracking"
         ],
         "integrations": {
-            "netgsm": "SMS & WhatsApp messaging",
-            "bulutfon": "Cloud phone system",
-            "arvento": "Vehicle tracking",
-            "findeks": "Credit scoring",
-            "iyzico": "Payment processing",
-            "efatura": "Electronic invoicing"
+            "netgsm": {
+                "name": "NetGSM SMS & WhatsApp",
+                "description": "SMS ve WhatsApp mesajlaşma hizmeti",
+                "status": "active"
+            },
+            "iyzico": {
+                "name": "Iyzico Payment",
+                "description": "Online ödeme ve sanal pos hizmeti", 
+                "status": "planned"
+            },
+            "efatura": {
+                "name": "E-Fatura",
+                "description": "Elektronik fatura entegrasyonu",
+                "status": "planned"
+            },
+            "bulutfon": {
+                "name": "Bulutfon VoIP",
+                "description": "Bulut tabanlı telefon sistemi",
+                "status": "planned"
+            },
+            "arvento": {
+                "name": "Arvento Fleet",
+                "description": "Araç takip ve filo yönetimi",
+                "status": "planned"
+            }
         },
-        "docs": "/docs" if settings.debug else "Contact support",
-        "environment": settings.environment
+        "api_endpoints": {
+            "authentication": "/api/v1/auth",
+            "tenant_management": "/api/v1/tenants",
+            "integrations": "/api/v1/integrations",
+            "webhooks": "/api/v1/webhooks",
+            "health_monitoring": "/health"
+        },
+        "docs": "/docs" if settings.debug else "Contact support for API documentation",
+        "environment": settings.environment,
+        "kvkk_compliance": True,
+        "data_residency": settings.data_residency_region
     }
+
+# Simple health check for compatibility
+@app.get("/health-check", tags=["System"])
+async def simple_health():
+    """Simple health check for load balancers"""
+    try:
+        database_healthy = await DatabaseManager.health_check()
+        if database_healthy:
+            return {"status": "healthy"}
+        else:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unhealthy", "reason": "database_unavailable"}
+            )
+    except Exception as e:
+        logger.error("Health check failed", error=str(e))
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "reason": "service_error"}
+        )
+
+# Readiness probe for Kubernetes
+@app.get("/ready", tags=["System"])
+async def readiness_check():
+    """Kubernetes readiness probe endpoint"""
+    try:
+        database_healthy = await DatabaseManager.health_check()
+        
+        if not database_healthy:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "not_ready",
+                    "message": "Database not available"
+                }
+            )
+        
+        return {"status": "ready"}
+    except Exception as e:
+        logger.error("Readiness check failed", error=str(e))
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "error": str(e)
+            }
+        )
 
 
 if __name__ == "__main__":
