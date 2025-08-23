@@ -16,7 +16,7 @@ import structlog
 from src.config import settings
 from src.database import engine, setup_row_level_security, DatabaseManager
 from src.core.tenant import TenantMiddleware
-from src.api.v1 import auth, tenants, integrations, webhooks, health
+from src.api.v1 import auth, tenants, integrations, webhooks, health, dia
 from src.utils.monitoring import setup_monitoring, MetricsMiddleware
 from src.utils.turkish import setup_turkish_localization
 
@@ -215,6 +215,12 @@ app.include_router(
     tags=["Health & Monitoring"]
 )
 
+app.include_router(
+    dia.router,
+    prefix="/api/v1/dia",
+    tags=["DIA ERP Integration"]
+)
+
 # Mount Prometheus metrics endpoint
 if settings.prometheus_enabled:
     metrics_app = make_asgi_app()
@@ -240,6 +246,11 @@ async def root():
             "Usage quota tracking"
         ],
         "integrations": {
+            "dia": {
+                "name": "DIA ERP System",
+                "description": "DIA ERP entegrasyonu - Stok, Cari, Fatura yönetimi",
+                "status": "active"
+            },
             "netgsm": {
                 "name": "NetGSM SMS & WhatsApp",
                 "description": "SMS ve WhatsApp mesajlaşma hizmeti",
@@ -270,6 +281,7 @@ async def root():
             "authentication": "/api/v1/auth",
             "tenant_management": "/api/v1/tenants",
             "integrations": "/api/v1/integrations",
+            "dia_erp": "/api/v1/dia",
             "webhooks": "/api/v1/webhooks",
             "health_monitoring": "/health"
         },

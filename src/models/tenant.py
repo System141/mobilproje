@@ -127,6 +127,11 @@ class Tenant(SystemModel):
     api_rate_limit = Column(Integer, nullable=True)  # Custom rate limit
     webhook_secret = Column(String(64), nullable=True)  # For webhook verification
     
+    # Relationships for DIA integration
+    dia_cari_kartlar = relationship("DIACariKartDB", back_populates="tenant", cascade="all, delete-orphan")
+    dia_stok_kartlar = relationship("DIAStokKartDB", back_populates="tenant", cascade="all, delete-orphan") 
+    dia_fatura_fisler = relationship("DIAFaturaFisiDB", back_populates="tenant", cascade="all, delete-orphan")
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if not self.webhook_secret:
