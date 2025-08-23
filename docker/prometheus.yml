@@ -1,3 +1,4 @@
+# Prometheus configuration for Turkish Business Integration Platform
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -11,16 +12,16 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'erp-platform'
+  - job_name: 'turkplatform-api'
     static_configs:
-      - targets: ['app:8000']
-    metrics_path: '/metrics'
-    scrape_interval: 5s
-
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis:6379']
+      - targets: ['api:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
 
   - job_name: 'postgres'
     static_configs:
       - targets: ['postgres:5432']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']

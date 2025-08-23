@@ -2,349 +2,177 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+# Turkish Business Integration Platform
 
-**Hybrid Python-to-C++ ERP Integration Platform** - A FastAPI-based integration platform designed to start with Python for rapid development and gradually migrate performance-critical components to C++ for enterprise-grade performance. Built following modern Python practices with a clear path to C++ optimization.
+## Tech Stack
+- Framework: FastAPI 0.104+ with Python 3.11
+- Database: PostgreSQL 15 with Row-Level Security for multi-tenancy
+- Cache: Redis 7.2 
+- Queue: Apache Kafka 3.6
+- Container: Docker with multi-stage builds
+- Language: Python 3.11+ with type hints
 
-## Development Strategy
+## Commands
 
-This project follows a **hybrid approach**:
-1. **Phase 1 (Months 1-6)**: Pure Python implementation with FastAPI, Polars, and modern async patterns
-2. **Phase 2 (Months 7-12)**: Gradual migration of performance-critical components to C++ using pybind11
-3. **Phase 3 (12+ months)**: Production optimization with hybrid Python-C++ architecture
-
-## Build & Run Commands
-
-### Quick Start
+### Development Setup
 ```bash
-# Install dependencies
-pip install -e ".[dev]"
+# Start full development environment
+./scripts/setup_dev.sh
 
-# Set up environment
-cp .env.example .env
-# Edit .env with your ERP system credentials
-
-# Run development server
-uvicorn erp_platform.main:app --reload --host 0.0.0.0 --port 8000
-
-# Using Docker - Base variant (default)
-docker-compose up --build
-
-# Using Docker - SAP REST variant
-docker-compose --profile sap-rest up --build
-
-# Using Docker - SAP RFC variant (requires SAP SDK)
-docker-compose --profile sap-rfc up --build
-
-# Custom Docker build with variants
-./build-docker.sh -v base                    # Base variant
-./build-docker.sh -v sap-rest               # SAP REST only
-./build-docker.sh -v sap-rfc -s /opt/nwrfcsdk  # SAP RFC with SDK path
+# Or manual setup
+cd docker && docker-compose up -d --build
 ```
 
-### Testing
+### Testing & Quality
 ```bash
-# Run all tests (if tests directory exists)
-pytest tests/ || echo "No tests directory found yet"
-
-# Run with coverage
-pytest tests/ --cov=erp_platform --cov-report=html
-
-# Run specific test categories
-pytest tests/ -m "unit"
-pytest tests/ -m "integration" 
-pytest tests/ -m "sap"
-
-# Performance profiling
-py-spy record -o profile.svg -- python -m pytest tests/
-
-# Manual API testing
-curl http://localhost:8000/api/v1/health
-curl http://localhost:8000/api/docs
-```
-
-### Code Quality
-```bash
-# Format code
-black src/
-
-# Lint code
-ruff check src/
+# Run tests
+pytest --cov=src --cov-report=html
 
 # Type checking
 mypy src/
 
-# Pre-commit hooks
-pre-commit run --all-files
+# Code formatting
+black src/ tests/
+ruff check --fix src/ tests/
+
+# Single test
+pytest tests/test_specific.py::test_function -v
 ```
 
-## Project Architecture
+### Database Operations
+```bash
+# Run migrations
+alembic upgrade head
 
-### Core Structure
-```
-src/erp_platform/
-├── core/                 # Core utilities and configuration
-│   ├── config.py        # Pydantic settings management
-│   ├── logging.py       # Structured logging with structlog
-│   └── telemetry.py     # Metrics and monitoring
-├── connectors/          # ERP system connectors
-│   ├── base.py          # Base connector with retry logic
-│   ├── sap.py           # SAP connector using PyRFC
-│   ├── oracle.py        # Oracle connector using oracledb
-│   ├── sqlserver.py     # SQL Server connector using pyodbc
-│   └── pool.py          # Connection pool management
-├── processors/          # Data processing modules
-│   ├── polars_processor.py    # High-performance data ops with Polars
-│   ├── csv_processor.py       # CSV processing
-│   └── json_processor.py      # JSON processing
-├── api/v1/              # FastAPI endpoints
-│   ├── health.py        # Health check endpoints
-│   ├── connectors.py    # ERP connector endpoints
-│   ├── processors.py    # Data processing endpoints
-│   └── tasks.py         # Async task management
-└── tasks/               # Background task definitions (Celery)
+# Create new migration
+alembic revision --autogenerate -m "description"
+
+# Reset database (development only)
+docker-compose exec postgres psql -U turkuser -d turkplatform -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 ```
 
-### Technology Stack
+### Application Running
+```bash
+# Development server
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
-**Core Framework**:
-- **FastAPI**: Modern async web framework with automatic OpenAPI docs
-- **Polars**: High-performance DataFrame library (5-10x faster than pandas)
-- **Pydantic**: Data validation and settings management
-- **Structlog**: Structured logging for better observability
+# Production (in container)
+docker-compose -f docker/docker-compose.yml up -d api
+```
 
-**ERP Connectors**:
-- **PyRFC**: SAP NetWeaver RFC connectivity
-- **python-oracledb**: Official Oracle database driver
-- **pyodbc**: SQL Server and other ODBC connections
+## Architecture Overview
 
-**Task Processing**:
-- **Celery**: Distributed task queue with Redis backend
-- **Redis**: In-memory data store for caching and queues
+This is a **multi-tenant SaaS platform** for Turkish business system integrations with strict KVKK (Turkish GDPR) compliance.
 
-**Monitoring**:
-- **Prometheus**: Metrics collection
-- **OpenTelemetry**: Distributed tracing
-- **Grafana**: Visualization and alerting
+### Core Design Patterns
+
+**Multi-Tenancy**: Every data model inherits from `TenantAwareModel` which provides:
+- Automatic tenant isolation via `tenant_id` field
+- Row-Level Security (RLS) at PostgreSQL level
+- KVKK compliance fields (data_subject_id, legal_basis, retention_until)
+- Audit trail and anonymization capabilities
+
+**Turkish Business Integrations**: All integrations inherit from `BaseConnector` which provides:
+- Standardized async HTTP client with retry logic
+- Turkish phone number validation
+- Bilingual error messages (Turkish/English)
+- Connection pooling and rate limiting
+
+### Key Components
+
+**Database Layer** (`src/models/`):
+- `TenantAwareModel`: Base for all tenant data with KVKK compliance
+- `SystemModel`: Base for system-wide data (tenant management)
+- `ConsentRecord`: KVKK consent tracking
+- `AuditLogModel`: Complete audit trail for compliance
+
+**Integration Layer** (`src/integrations/`):
+- `BaseConnector`: Abstract base with HTTP client, auth, retry logic
+- `NetgsmConnector`: SMS/WhatsApp via Turkish Netgsm service
+- Each connector validates Turkish-specific data (phone numbers, tax IDs)
+
+**API Layer** (`src/api/v1/`):
+- All endpoints are tenant-aware via `TenantMiddleware`
+- Automatic tenant extraction from subdomain or X-Tenant-ID header
+- Turkish/English error responses
+
+**Multi-Tenant Architecture**:
+- `TenantMiddleware`: Extracts tenant from request, sets context
+- `tenant_context`: Context variable for tenant ID throughout request
+- PostgreSQL RLS policies enforce data isolation
+- Connection pooling per tenant with usage quotas
+
+## Key Architectural Concepts
+
+### KVKK Compliance Integration
+Every model that stores personal data must:
+```python
+class MyModel(TenantAwareModel):
+    # Inherits KVKK compliance fields:
+    # - data_subject_id, legal_basis, data_category
+    # - retention_until, is_anonymized
+    # - created_by, updated_by for audit trail
+```
+
+### Turkish Business System Pattern
+All Turkish business integrations follow this pattern:
+```python
+class TurkishSystemConnector(BaseConnector):
+    async def authenticate(self) -> bool: ...
+    async def execute_action(self, action: str, payload: Dict) -> ConnectorResponse: ...
+    def get_available_actions(self) -> List[str]: ...
+```
+
+### Multi-Tenant Request Flow
+1. Request hits `TenantMiddleware`
+2. Tenant extracted from subdomain/header
+3. `tenant_context.set(tenant_id)` called
+4. Database queries automatically filtered by tenant via RLS
+5. All logging includes tenant_id for tracing
 
 ## Development Guidelines
 
-### Adding New ERP Connectors
+### Adding New Turkish Business Integrations
+1. Create connector in `src/integrations/{service_name}/`
+2. Inherit from `BaseConnector`
+3. Implement required abstract methods
+4. Add Turkish phone/tax number validation as needed
+5. Include bilingual error messages
+6. Add integration tests with Turkish test data
 
-1. Create new connector in `src/erp_platform/connectors/`
-2. Inherit from `BaseConnector` class
-3. Implement required methods:
-   ```python
-   async def connect(self) -> bool
-   async def disconnect(self) -> bool  
-   async def execute(self, query: str, params: Dict) -> Any
-   async def ping(self) -> bool
-   ```
-4. Add connection pool support in `pool.py`
-5. Create API endpoints in `api/v1/connectors.py`
+### Database Model Guidelines
+- Use `TenantAwareModel` for tenant data
+- Use `SystemModel` for system-wide data (tenants, system config)  
+- Include KVKK legal basis for personal data
+- Set retention periods per Turkish data protection law
+- Use soft deletes via `deleted_at` field
 
-### Performance Optimization Strategy
+### Testing Strategy
+- Unit tests for each connector with Turkish data validation
+- Integration tests with real Turkish phone numbers (anonymized)
+- KVKK compliance tests (consent tracking, data export, anonymization)
+- Multi-tenant isolation tests
 
-**Identify Bottlenecks**:
-```bash
-# Profile production workloads
-py-spy record -o profile.svg -d 60 -s
+## Turkish Compliance Notes
 
-# Memory profiling
-mprof run python -c "import erp_platform.main"
-mprof plot
+- All personal data must have legal basis (KVKK requirement)
+- Phone numbers must be Turkish mobile format (5XX XXX XXXX)
+- Tax numbers validated as 10-11 digit Turkish format
+- Data retention periods enforced automatically
+- Audit logs required for all personal data access
+- Consent records must be maintained for 3+ years
 
-# Async profiling
-python -m cProfile -s cumulative erp_platform/main.py
-```
+## Environment Access
 
-**Migration Candidates** (in order of priority):
-1. Mathematical computations and data transformations
-2. CSV/JSON parsing for large files
-3. Data validation and serialization
-4. Cryptographic operations
-5. Network protocol parsing
+Development services:
+- API: http://localhost:8000/docs
+- Database: localhost:5432 (turkuser/turkpass) 
+- Redis: localhost:6379
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (admin/turkpass)
 
-### Error Handling
-
-- Use custom exception classes for different error types
-- Implement exponential backoff with `BaseConnector`
-- Log structured errors with context using structlog
-- Return proper HTTP status codes in API responses
-
-### Memory Management
-
-- Use async context managers for resource cleanup
-- Implement connection pooling to avoid resource leaks
-- Profile memory usage regularly with memory-profiler
-- Use Polars lazy evaluation for large datasets
-
-## Environment Configuration
-
-Copy `.env.example` to `.env` and configure (see `.env.example` for all available options):
-
-**Essential Settings**:
-```bash
-# Application
-ENVIRONMENT=development
-DEBUG=true
-HOST=0.0.0.0
-PORT=8000
-
-# ERP Systems (configure as needed)
-SAP_ENABLED=true
-SAP_HOST=your-sap-server
-SAP_USER=your-user
-SAP_PASSWORD=your-password
-
-# Performance
-MAX_WORKERS=10
-USE_CPP_ACCELERATION=false  # Set to true when C++ modules are ready
-```
-
-## Docker & Production Deployment
-
-```bash
-# Build and run with Docker Compose
-docker-compose up --build
-
-# Production deployment
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
-
-# Scale services
-docker-compose up --scale celery-worker=3
-```
-
-**Monitoring Stack**:
-- Prometheus metrics: http://localhost:9090
-- Grafana dashboards: http://localhost:3000
-- Flower (Celery): http://localhost:5555
-
-## Cython Integration (Active)
-
-Current hybrid Python-Cython implementation for performance optimization:
-
-### **Build Cython Modules**
-```bash
-# Install dependencies
-pip install -e ".[cython]"
-
-# Build optimized Cython extensions
-./build_cython.sh -t release
-
-# Debug build with profiling
-./build_cython.sh -t debug -p -a
-
-# Verify installation
-python -c "from erp_platform.cython_modules import CYTHON_AVAILABLE; print('Cython:', CYTHON_AVAILABLE)"
-```
-
-### **Performance Benchmarks**
-```bash
-# Run comprehensive benchmarks
-python scripts/benchmark_cython.py
-
-# Specific module benchmarks
-python scripts/benchmark_cython.py --csv-size 50000 --verbose
-```
-
-### **Cython Modules Available**
-- **CSV Processor**: 3-4x faster CSV parsing and writing
-- **JSON Processor**: 2.5-3.5x faster JSON operations and transformations
-- **SAP Transformer**: 3-5x faster SAP data transformations
-- **Math Utils**: 4-6x faster mathematical operations  
-- **String Utils**: 2-3x faster string processing
-
-### **Usage Pattern**
-```python
-# Automatic fallback to Python if Cython unavailable
-from erp_platform.cython_modules import CSVProcessor, CYTHON_AVAILABLE
-
-if CYTHON_AVAILABLE:
-    print("Using optimized Cython modules")
-else:
-    print("Fallback to Python implementations")
-```
-
-## C++ Integration (Future)
-
-For even greater performance when needed:
-
-1. **Profile First**: Use py-spy to identify remaining bottlenecks
-2. **Create C++ Module**: 
-   ```bash
-   mkdir src/cpp_extensions/your_module
-   # Implement with pybind11
-   ```
-3. **Hybrid Loading**:
-   ```python
-   try:
-       from cpp_extensions import optimized_function
-       use_cpp = True
-   except ImportError:
-       from cython_modules import optimized_function
-       use_cpp = False
-   ```
-
-## API Usage Examples
-
-### SAP Integration
-```bash
-# Execute SAP BAPI
-curl -X POST "http://localhost:8000/api/v1/connectors/sap/execute" \
-  -H "Content-Type: application/json" \
-  -d '{"function_name": "BAPI_USER_GET_DETAIL", "parameters": {"USERNAME": "TESTUSER"}}'
-
-# Read SAP table
-curl "http://localhost:8000/api/v1/connectors/sap/read-table?table_name=MARA&max_rows=10"
-```
-
-### Data Processing
-```bash
-# Process CSV with Polars
-curl -X POST "http://localhost:8000/api/v1/processors/transform/polars" \
-  -F "file=@data.csv" \
-  -F "operations=[{\"type\":\"filter\",\"condition\":{\"column\":\"status\",\"value\":\"active\"}}]"
-```
-
-## Performance Targets
-
-**Current (Python)**:
-- API throughput: 1,000+ requests/second
-- CSV processing: 100MB files in <5 seconds
-- Memory usage: <2GB under normal load
-
-**Future (Hybrid)**:
-- API throughput: 5,000+ requests/second  
-- CSV processing: 100MB files in <1 second
-- Memory usage: <1GB under normal load
-
-## Common Issues & Solutions
-
-**Connection Pool Exhaustion**:
-```python
-# Increase pool size in .env
-SAP_POOL_SIZE=10
-ORACLE_POOL_SIZE=10
-```
-
-**Memory Issues with Large Files**:
-```python
-# Use Polars lazy evaluation
-df = pl.scan_csv("large_file.csv").filter(...).collect()
-```
-
-**Slow API Responses**:
-```bash
-# Profile specific endpoints
-py-spy record -o profile.svg -d 10 -s -u http://localhost:8000/slow-endpoint
-```
-
-## Important Notes
-
-- All ERP connections use connection pooling by default
-- Async/await pattern used throughout for high concurrency
-- Structured logging provides detailed request tracing
-- Prometheus metrics track all connector operations
-- Docker setup includes full monitoring stack
-- C++ acceleration is opt-in and falls back gracefully to Python
+## Do Not Modify
+- `alembic/versions/` (database migrations)
+- `src/models/base.py` KVKK compliance fields
+- `src/core/tenant.py` multi-tenant logic
+- Database RLS policies in production

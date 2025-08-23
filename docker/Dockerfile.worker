@@ -1,0 +1,25 @@
+# Turkish Business Integration Platform - Worker Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -e ".[kafka]"
+
+# Copy application code
+COPY src/ src/
+
+# Create non-root user
+RUN useradd -m -u 1000 worker && chown -R worker:worker /app
+USER worker
+
+# Command
+CMD ["python", "-m", "src.workers.kafka_consumer"]

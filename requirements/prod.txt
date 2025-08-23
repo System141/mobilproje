@@ -1,0 +1,13 @@
+-r base.txt
+
+# Production Monitoring
+sentry-sdk[fastapi]>=1.38.0
+newrelic>=9.2.0
+
+# Production Performance
+gunicorn>=21.2.0
+gevent>=23.9.0
+
+# Additional Production Libraries
+orjson>=3.9.0
+ujson>=5.8.0

@@ -1,0 +1,27 @@
+-r base.txt
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+httpx>=0.25.0
+
+# Code Quality
+ruff>=0.1.5
+black>=23.10.0
+mypy>=1.7.0
+pre-commit>=3.5.0
+
+# Development Tools
+ipython>=8.17.0
+jupyter>=1.0.0
+ipdb>=0.13.13
+
+# Profiling & Performance
+py-spy>=0.3.14
+memory-profiler>=0.61.0
+locust>=2.17.0
+
+# Database Tools
+pgcli>=3.5.0
